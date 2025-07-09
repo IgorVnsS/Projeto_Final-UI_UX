@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Dashboard - Hotel</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        header {
+            display: flex;
+            justify-content: flex-end;
+            padding: 1rem 2rem;
+            background-color: #f4f7fa;
+            border-bottom: 1px solid #ddd;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        header button {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        header button:hover {
+            background-color: #c0392b;
+        }
+
+        .dashboard-cards {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            flex: 1 1 220px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            user-select: none;
+        }
+
+        .card h2 {
+            font-size: 2.6rem;
+            margin-bottom: 0.25rem;
+            color: #4161a5;
+        }
+
+        .card p {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .charts-container {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .chart-box {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            flex: 1 1 350px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-box h3 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #4161a5;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <h2>Hotel</h2>
+            <nav>
+                <a href="dashboard.html" class="active">Dashboard</a>
+                <a href="rooms.html">Quartos</a>
+                <a href="reservations.html">Reservas</a>
+                <a href="guests.html">Hóspedes</a>
+                <a href="checkin.html">Check-in/out</a>
+            </nav>
+
+            <button id="btnLogoutSidebar" class="btn-logout-sidebar">Sair</button>
+        </aside>
+
+        <main class="content">
+            <section class="dashboard-cards">
+                <div class="card">
+                    <h2 id="totalRooms">0</h2>
+                    <p>Total de Quartos</p>
+                </div>
+                <div class="card">
+                    <h2 id="activeGuests">0</h2>
+                    <p>Hóspedes Ativos</p>
+                </div>
+                <div class="card">
+                    <h2 id="ongoingReservations">0</h2>
+                    <p>Reservas em Andamento</p>
+                </div>
+                <div class="card">
+                    <h2 id="occupancyRate">0%</h2>
+                    <p>Taxa de Ocupação</p>
+                </div>
+            </section>
+
+            <section class="charts-container">
+                <div class="chart-box">
+                    <h3>Status dos Quartos</h3>
+                    <canvas id="pieStatusRooms"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Reservas Últimos 7 Dias</h3>
+                    <canvas id="barReservationsWeek"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Simulação dos dados no localStorage
+        function getData() {
+            const quartos = JSON.parse(localStorage.getItem("quartos") || "[]");
+            const hospedes = JSON.parse(localStorage.getItem("hospedes") || "[]");
+            const reservas = JSON.parse(localStorage.getItem("reservas") || "[]");
+            const checkins = JSON.parse(localStorage.getItem("checkins") || "[]");
+            return { quartos, hospedes, reservas, checkins };
+        }
+
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Filtro reservas em andamento (hoje entre entrada e saída)
+        function filterReservasAtivas(reservas) {
+            const hoje = new Date();
+            return reservas.filter(r => {
+                const entrada = new Date(r.entrada);
+                const saida = new Date(r.saida);
+                return entrada <= hoje && hoje <= saida;
+            });
+        }
+
+        // Taxa de ocupação: quartos ocupados / total
+        function calcularTaxaOcupacao(quartos) {
+            const total = quartos.length || 1;
+            const ocupados = quartos.filter(q => q.status === "Ocupado").length;
+            return ((ocupados / total) * 100).toFixed(1);
+        }
+
+        // Contagem status quartos
+        function contarStatus(quartos) {
+            const status = { Disponível: 0, Ocupado: 0, "Manutenção": 0 };
+            quartos.forEach(q => {
+                if (status[q.status] !== undefined) status[q.status]++;
+            });
+            return status;
+        }
+
+        // Reservas últimos 7 dias - contagem por data de entrada
+        function reservasUltimos7Dias(reservas) {
+            const result = {};
+            const hoje = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(hoje);
+                d.setDate(d.getDate() - i);
+                const str = formatDate(d);
+                result[str] = 0;
+            }
+            reservas.forEach(r => {
+                if (r.entrada in result) result[r.entrada]++;
+            });
+            return result;
+        }
+
+        function renderDashboard() {
+            const { quartos, hospedes, reservas } = getData();
+            const reservasAtivas = filterReservasAtivas(reservas);
+
+            document.getElementById("totalRooms").textContent = quartos.length;
+            document.getElementById("activeGuests").textContent = hospedes.length;
+            document.getElementById("ongoingReservations").textContent = reservasAtivas.length;
+            document.getElementById("occupancyRate").textContent = calcularTaxaOcupacao(quartos) + "%";
+
+            // Pie chart status quartos
+            const statusCount = contarStatus(quartos);
+            const pieCtx = document.getElementById("pieStatusRooms").getContext("2d");
+            if (window.pieChart) window.pieChart.destroy();
+            window.pieChart = new Chart(pieCtx, {
+                type: "pie",
+                data: {
+                    labels: ["Disponível", "Ocupado", "Manutenção"],
+                    datasets: [{
+                        data: [statusCount["Disponível"], statusCount["Ocupado"], statusCount["Manutenção"]],
+                        backgroundColor: ["#27ae60", "#e74c3c", "#f39c12"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: "bottom" }
+                    }
+                }
+            });
+
+            // Bar chart reservas últimos 7 dias
+            const barCtx = document.getElementById("barReservationsWeek").getContext("2d");
+            const last7Days = reservasUltimos7Dias(reservas);
+            if (window.barChart) window.barChart.destroy();
+            window.barChart = new Chart(barCtx, {
+                type: "bar",
+                data: {
+                    labels: Object.keys(last7Days),
+                    datasets: [{
+                        label: "Reservas",
+                        data: Object.values(last7Days),
+                        backgroundColor: "#4161a5"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // Logout
+        document.getElementById("btnLogoutSidebar").addEventListener("click", () => {
+            localStorage.removeItem("userLogged");
+            window.location.href = "login.html";
+        });
+
+        // Verificar sessão
+        window.addEventListener("load", () => {
+            if (!localStorage.getItem("userLogged")) {
+                window.location.href = "login.html";
+            } else {
+                renderDashboard();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gerenciamento de quartos - Hotel</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #f1f4f8;
+    }
+    tr:hover {
+      background-color: #f9faff;
+    }
+    .status-label {
+      padding: 0.3rem 0.8rem;
+      border-radius: 12px;
+      font-weight: 600;
+      color: white;
+      user-select: none;
+    }
+    .status-Disponível {
+      background-color: #27ae60;
+    }
+    .status-Ocupado {
+      background-color: #e74c3c;
+    }
+    .status-Manutenção {
+      background-color: #f39c12;
+    }
+    .btn-status-toggle,
+    .btn-delete {
+      background: none;
+      border: none;
+      color: #4161a5;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 1rem;
+    }
+    .btn-delete:hover {
+      color: #c0392b;
+    }
+
+    .btn-modal {
+      background-color: #5f6164;
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      margin-top: 2rem;
+      cursor: pointer;
+    }
+    .btn-modal:hover {
+      background-color: #3b4c6d;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 480px;
+      width: 100%;
+      position: relative;
+    }
+    .btn-close-modal {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #999;
+    }
+    .btn-close-modal:hover {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Hotel</h2>
+      <nav>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="rooms.html" class="active">Quartos</a>
+        <a href="reservations.html">Reservas</a>
+        <a href="guests.html">Hóspedes</a>
+        <a href="checkin.html">Check-in/out</a>
+      </nav>
+      <button id="btnLogoutSidebar" class="btn-logout-sidebar">Sair</button>
+    </aside>
+
+    <main class="content">
+      <h1>Gerenciamento de Quartos</h1>
+
+      <button class="btn-modal" onclick="abrirModal()">+ Novo Quarto</button>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="roomsTableBody"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+      <button class="btn-close-modal" onclick="fecharModal()">&times;</button>
+      <h2>Novo Quarto</h2>
+      <form id="formAddRoom">
+        <label for="roomNumber">Número do Quarto</label>
+        <input type="number" id="roomNumber" required min="1" placeholder="Ex: 101" />
+
+        <label for="roomStatus">Status</label>
+        <select id="roomStatus" required>
+          <option value="" disabled selected>Selecione</option>
+          <option value="Disponível">Disponível</option>
+          <option value="Ocupado">Ocupado</option>
+          <option value="Manutenção">Em Manutenção</option>
+        </select>
+
+        <button type="submit" class="btn-primary">Salvar</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    if (!localStorage.getItem("userLogged")) {
+      window.location.href = "login.html";
+    }
+
+    const tableBody = document.getElementById("roomsTableBody");
+    const form = document.getElementById("formAddRoom");
+    const modal = document.getElementById("modalOverlay");
+    const btnLogout = document.getElementById("btnLogoutSidebar");
+
+    btnLogout.addEventListener("click", () => {
+      localStorage.removeItem("userLogged");
+      window.location.href = "login.html";
+    });
+
+    function abrirModal() {
+      modal.style.display = "flex";
+    }
+
+    function fecharModal() {
+      modal.style.display = "none";
+      form.reset();
+    }
+
+    function getRooms() {
+      return JSON.parse(localStorage.getItem("quartos") || "[]");
+    }
+
+    function saveRooms(rooms) {
+      localStorage.setItem("quartos", JSON.stringify(rooms));
+    }
+
+    function renderRooms() {
+      const rooms = getRooms();
+      tableBody.innerHTML = "";
+
+      if (rooms.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center">Nenhum quarto cadastrado.</td></tr>`;
+        return;
+      }
+
+      rooms.forEach((room, index) => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${room.numero}</td>
+          <td><span class="status-label status-${room.status.replace(" ", "\\ ")}">${room.status}</span></td>
+          <td>
+            <button class="btn-status-toggle" onclick="toggleStatus(${index})">Alterar Status</button>
+            <button class="btn-delete" onclick="excluirQuarto(${index})">Excluir</button>
+          </td>
+        `;
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function toggleStatus(index) {
+      const rooms = getRooms();
+      const statusList = ["Disponível", "Ocupado", "Manutenção"];
+      const current = statusList.indexOf(rooms[index].status);
+      rooms[index].status = statusList[(current + 1) % statusList.length];
+      saveRooms(rooms);
+      renderRooms();
+    }
+
+    function excluirQuarto(index) {
+      if (!confirm("Deseja mesmo excluir este quarto?")) return;
+      const rooms = getRooms();
+      rooms.splice(index, 1);
+      saveRooms(rooms);
+      renderRooms();
+    }
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const numero = Number(form.roomNumber.value);
+      const status = form.roomStatus.value;
+
+      if (!numero || !status) return alert("Preencha todos os campos.");
+
+      const rooms = getRooms();
+      if (rooms.some(r => r.numero === numero)) {
+        return alert("Quarto já existe.");
+      }
+
+      rooms.push({ numero, status });
+      saveRooms(rooms);
+      fecharModal();
+      renderRooms();
+    });
+
+    window.addEventListener("load", () => {
+      renderRooms();
+    });
+  </script>
+</body>
+</html>

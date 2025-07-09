@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Login Administrativo - Hotel</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <style>
+        body,
+        html {
+            height: 100%;
+            background: #f4f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2.5rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+            width: 100%;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            color: #4161a5;
+            text-align: center;
+        }
+
+        form label {
+            font-weight: 600;
+        }
+
+        form input {
+            width: 100%;
+            padding: 0.7rem;
+            margin: 0.5rem 0 1.5rem 0;
+            border-radius: 8px;
+            border: 1.5px solid #aaa;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        form input:focus {
+            outline: none;
+            border-color: #4161a5;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.8rem;
+            font-size: 1.1rem;
+            background-color: #4161a5;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #31467c;
+        }
+
+        .error-msg {
+            color: #c0392b;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <h1>Administrativo - Hotel</h1>
+        <div class="error-msg" id="error-msg"></div>
+        <form id="loginForm">
+            <label for="username">Usuário</label>
+            <input type="text" id="username" name="username" placeholder="admin" required />
+
+            <label for="password">Senha</label>
+            <input type="password" id="password" name="password" placeholder="123" required />
+
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById("loginForm");
+        const errorMsg = document.getElementById("error-msg");
+
+        loginForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            const user = loginForm.username.value.trim();
+            const pass = loginForm.password.value.trim();
+
+            if (user === "" || pass === "") {
+                errorMsg.textContent = "Preencha todos os campos.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            // Usuário e senha fixos
+            if (user === "admin" && pass === "123") {
+                localStorage.setItem("userLogged", user);
+                window.location.href = "dashboard.html";
+            } else {
+                errorMsg.textContent = "Usuário ou senha incorretos.";
+                errorMsg.style.display = "block";
+            }
+        });
+    </script>
+</body>
+
+</html>

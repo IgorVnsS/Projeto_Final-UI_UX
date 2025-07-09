@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Gerenciamento de reservas - Hotel</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+
+    th,
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f4f8;
+    }
+
+    tr:hover {
+      background-color: #f9faff;
+    }
+
+    .btn-cancelar {
+      background: none;
+      border: none;
+      color: #e74c3c;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-modal {
+      background-color: #5f6164;
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      margin-top: 2rem;
+      cursor: pointer;
+    }
+
+    .btn-modal:hover {
+      background-color: #3b4c6d;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 100%;
+      position: relative;
+    }
+
+    .btn-close-modal {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .btn-close-modal:hover {
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Hotel</h2>
+      <nav>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="rooms.html">Quartos</a>
+        <a href="reservations.html" class="active">Reservas</a>
+        <a href="guests.html">Hóspedes</a>
+        <a href="checkin.html">Check-in/out</a>
+      </nav>
+      <button id="btnLogoutSidebar" class="btn-logout-sidebar">Sair</button>
+    </aside>
+
+    <main class="content">
+      <h1>Reservas</h1>
+
+      <button class="btn-modal" onclick="abrirModal()">+ Nova Reserva</button>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Hóspede</th>
+            <th>Quarto</th>
+            <th>Entrada</th>
+            <th>Saída</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="reservationsTableBody"></tbody>
+      </table>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+      <button class="btn-close-modal" onclick="fecharModal()">&times;</button>
+      <h2>Nova Reserva</h2>
+      <form id="formReserva">
+        <label for="hospedeSelect">Hóspede</label>
+        <select id="hospedeSelect" required>
+          <option value="" disabled selected>Selecione um hóspede</option>
+        </select>
+
+        <label for="quartoSelect">Quarto Disponível</label>
+        <select id="quartoSelect" required>
+          <option value="" disabled selected>Carregando...</option>
+        </select>
+
+        <label for="entrada">Data de Entrada</label>
+        <input type="date" id="entrada" required />
+
+        <label for="saida">Data de Saída</label>
+        <input type="date" id="saida" required />
+
+        <button type="submit" class="btn-primary">Reservar</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    if (!localStorage.getItem("userLogged")) {
+      window.location.href = "login.html";
+    }
+
+    const tableBody = document.getElementById("reservationsTableBody");
+    const form = document.getElementById("formReserva");
+    const modal = document.getElementById("modalOverlay");
+    const selectHospede = document.getElementById("hospedeSelect");
+    const selectQuarto = document.getElementById("quartoSelect");
+    const btnLogout = document.getElementById("btnLogoutSidebar");
+
+    btnLogout.addEventListener("click", () => {
+      localStorage.removeItem("userLogged");
+      window.location.href = "login.html";
+    });
+
+    function abrirModal() {
+      preencherSelects();
+      modal.style.display = "flex";
+    }
+
+    function fecharModal() {
+      modal.style.display = "none";
+      form.reset();
+    }
+
+    function getReservas() {
+      return JSON.parse(localStorage.getItem("reservas") || "[]");
+    }
+
+    function getHospedes() {
+      return JSON.parse(localStorage.getItem("hospedes") || "[]");
+    }
+
+    function getQuartos() {
+      return JSON.parse(localStorage.getItem("quartos") || "[]");
+    }
+
+    function saveReservas(reservas) {
+      localStorage.setItem("reservas", JSON.stringify(reservas));
+    }
+
+    function renderReservas() {
+      const reservas = getReservas();
+      const hospedes = getHospedes();
+      tableBody.innerHTML = "";
+
+      if (reservas.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center">Nenhuma reserva cadastrada.</td></tr>`;
+        return;
+      }
+
+      reservas.forEach((res, i) => {
+        const tr = document.createElement("tr");
+
+        const nomeHospede = hospedes[res.hospede]?.nome || "Desconhecido";
+
+        tr.innerHTML = `
+          <td>${nomeHospede}</td>
+          <td>${res.quarto}</td>
+          <td>${res.entrada}</td>
+          <td>${res.saida}</td>
+          <td>
+            <button class="btn-cancelar" onclick="cancelarReserva(${i})">Cancelar</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function cancelarReserva(index) {
+      if (!confirm("Deseja mesmo cancelar esta reserva?")) return;
+      const reservas = getReservas();
+      reservas.splice(index, 1);
+      saveReservas(reservas);
+      renderReservas();
+    }
+
+    function preencherSelects() {
+      const hospedes = getHospedes();
+      const quartos = getQuartos();
+      const disponiveis = quartos.filter(q => q.status === "Disponível");
+
+      selectHospede.innerHTML = `<option value="" disabled selected>Selecione um hóspede</option>`;
+      hospedes.forEach((h, i) => {
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = h.nome;
+        selectHospede.appendChild(opt);
+      });
+
+      selectQuarto.innerHTML = `<option value="" disabled selected>Selecione um quarto</option>`;
+      if (disponiveis.length === 0) {
+        alert("Nenhum quarto disponível no momento.");
+        const opt = document.createElement("option");
+        opt.disabled = true;
+        opt.textContent = "Sem quartos disponíveis";
+        selectQuarto.appendChild(opt);
+      } else {
+        disponiveis.forEach(q => {
+          const opt = document.createElement("option");
+          opt.value = q.numero;
+          opt.textContent = "Quarto " + q.numero;
+          selectQuarto.appendChild(opt);
+        });
+      }
+    }
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+
+      const hospede = selectHospede.value;
+      const quarto = selectQuarto.value;
+      const entrada = document.getElementById("entrada").value;
+      const saida = document.getElementById("saida").value;
+
+      if (!hospede || !quarto || !entrada || !saida) {
+        return alert("Preencha todos os campos.");
+      }
+
+      if (entrada >= saida) {
+        return alert("Data de entrada deve ser anterior à de saída.");
+      }
+
+      // Pega reservas e quartos do localStorage
+      const reservas = getReservas();
+      let quartos = getQuartos();
+
+      // Atualiza status do quarto para Ocupado
+      quartos = quartos.map(q => {
+        if (q.numero == quarto) q.status = "Ocupado";
+        return q;
+      });
+
+      // Salva reserva e quartos atualizados
+      reservas.push({ hospede, quarto, entrada, saida });
+      saveReservas(reservas);
+      localStorage.setItem("quartos", JSON.stringify(quartos));
+
+      fecharModal();
+      renderReservas();
+    });
+
+    window.addEventListener("load", () => {
+      renderReservas();
+    });
+  </script>
+</body>
+
+</html>

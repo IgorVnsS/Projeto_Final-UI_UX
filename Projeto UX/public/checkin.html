@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Check-in / Check-out - Hotel</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    h2.section-title {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #4161a5;
+      padding-bottom: 0.25rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+
+    th,
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f1f4f8;
+    }
+
+    tr:hover {
+      background-color: #f9faff;
+    }
+
+    .btn-checkin,
+    .btn-checkout {
+      background-color: #4161a5;
+      border: none;
+      color: white;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-checkout {
+      background-color: #e74c3c;
+    }
+
+    .btn-checkin:hover {
+      background-color: #2d4370;
+    }
+
+    .btn-checkout:hover {
+      background-color: #c0392b;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 100%;
+      position: relative;
+      text-align: center;
+    }
+
+    .btn-close-modal {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .btn-close-modal:hover {
+      color: #333;
+    }
+
+    .btn-modal-action {
+      margin-top: 1.5rem;
+      padding: 0.6rem 1.2rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-confirm-checkin {
+      background-color: #27ae60;
+      color: white;
+    }
+
+    .btn-confirm-checkin:hover {
+      background-color: #1e8449;
+    }
+
+    .btn-confirm-checkout {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    .btn-confirm-checkout:hover {
+      background-color: #c0392b;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Hotel</h2>
+      <nav>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="rooms.html">Quartos</a>
+        <a href="reservations.html">Reservas</a>
+        <a href="guests.html">Hóspedes</a>
+        <a href="checkin.html" class="active">Check-in/out</a>
+      </nav>
+      <button id="btnLogoutSidebar" class="btn-logout-sidebar">Sair</button>
+    </aside>
+
+    <main class="content">
+      <h1>Check-in / Check-out</h1>
+
+      <section>
+        <h2 class="section-title">Reservas Pendentes de Check-in</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Hóspede</th>
+              <th>Quarto</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="pendentesBody"></tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 class="section-title">Check-ins Ativos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Hóspede</th>
+              <th>Quarto</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="ativosBody"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-content">
+      <button class="btn-close-modal" onclick="fecharModal()">&times;</button>
+      <h2 id="modalTitle"></h2>
+      <p id="modalText"></p>
+      <button id="btnConfirmAction" class="btn-modal-action"></button>
+    </div>
+  </div>
+
+  <script>
+    if (!localStorage.getItem("userLogged")) {
+      window.location.href = "login.html";
+    }
+
+    const btnLogout = document.getElementById("btnLogoutSidebar");
+    btnLogout.addEventListener("click", () => {
+      localStorage.removeItem("userLogged");
+      window.location.href = "login.html";
+    });
+
+    const pendentesBody = document.getElementById("pendentesBody");
+    const ativosBody = document.getElementById("ativosBody");
+    const modal = document.getElementById("modalOverlay");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalText = document.getElementById("modalText");
+    const btnConfirmAction = document.getElementById("btnConfirmAction");
+
+    let reservas = JSON.parse(localStorage.getItem("reservas") || "[]");
+    let checkins = JSON.parse(localStorage.getItem("checkins") || "[]");
+
+    const hospedes = JSON.parse(localStorage.getItem("hospedes") || "[]");
+
+    function salvarReservas() {
+      localStorage.setItem("reservas", JSON.stringify(reservas));
+    }
+    function salvarCheckins() {
+      localStorage.setItem("checkins", JSON.stringify(checkins));
+    }
+    function salvarQuartos(quartos) {
+      localStorage.setItem("quartos", JSON.stringify(quartos));
+    }
+
+    function renderPendentes() {
+      pendentesBody.innerHTML = "";
+      if (reservas.length === 0) {
+        pendentesBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhuma reserva pendente.</td></tr>`;
+        return;
+      }
+
+      reservas.forEach((reserva, i) => {
+        const hospedeNome = hospedes[reserva.hospede]?.nome || "Desconhecido";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${hospedeNome}</td>
+          <td>${reserva.quarto}</td>
+          <td>${reserva.entrada}</td>
+          <td>${reserva.saida}</td>
+          <td><button class="btn-checkin" onclick="confirmarCheckin(${i})">Check-in</button></td>
+        `;
+        pendentesBody.appendChild(tr);
+      });
+    }
+
+    function renderAtivos() {
+      ativosBody.innerHTML = "";
+      if (checkins.length === 0) {
+        ativosBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhum check-in ativo.</td></tr>`;
+        return;
+      }
+
+      checkins.forEach((checkin, i) => {
+        const hospedeNome = hospedes[checkin.hospede]?.nome || "Desconhecido";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${hospedeNome}</td>
+          <td>${checkin.quarto}</td>
+          <td>${checkin.entrada}</td>
+          <td>${checkin.saida}</td>
+          <td><button class="btn-checkout" onclick="confirmarCheckout(${i})">Check-out</button></td>
+        `;
+        ativosBody.appendChild(tr);
+      });
+    }
+
+    function abrirModalCheckin(index) {
+      modalTitle.textContent = "Confirmar Check-in";
+      const reserva = reservas[index];
+      const hospedeNome = hospedes[reserva.hospede]?.nome || "Desconhecido";
+      modalText.textContent = `Deseja confirmar o check-in do hóspede ${hospedeNome} no quarto ${reserva.quarto}?`;
+      btnConfirmAction.textContent = "Confirmar Check-in";
+      btnConfirmAction.className = "btn-modal-action btn-confirm-checkin";
+
+      btnConfirmAction.onclick = () => {
+        realizarCheckin(index);
+        fecharModal();
+      };
+      modal.style.display = "flex";
+    }
+    function abrirModalCheckout(index) {
+      modalTitle.textContent = "Confirmar Check-out";
+      const checkin = checkins[index];
+      const hospedeNome = hospedes[checkin.hospede]?.nome || "Desconhecido";
+      modalText.textContent = `Deseja confirmar o check-out do hóspede ${hospedeNome} do quarto ${checkin.quarto}?`;
+      btnConfirmAction.textContent = "Confirmar Check-out";
+      btnConfirmAction.className = "btn-modal-action btn-confirm-checkout";
+
+      btnConfirmAction.onclick = () => {
+        realizarCheckout(index);
+        fecharModal();
+      };
+      modal.style.display = "flex";
+    }
+
+    function fecharModal() {
+      modal.style.display = "none";
+    }
+
+    function confirmarCheckin(index) {
+      abrirModalCheckin(index);
+    }
+    function confirmarCheckout(index) {
+      abrirModalCheckout(index);
+    }
+
+    // Atualiza status do quarto para "Ocupado" no check-in
+    function realizarCheckin(index) {
+      const reserva = reservas[index];
+      // Passa reserva para checkins
+      checkins.push(reserva);
+      reservas.splice(index, 1);
+      salvarReservas();
+      salvarCheckins();
+
+      // Atualiza status do quarto
+      let quartos = JSON.parse(localStorage.getItem("quartos") || "[]");
+      quartos = quartos.map(q => {
+        if (q.numero == reserva.quarto) q.status = "Ocupado";
+        return q;
+      });
+      salvarQuartos(quartos);
+
+      renderPendentes();
+      renderAtivos();
+    }
+
+    // Atualiza status do quarto para "Disponível" no check-out
+    function realizarCheckout(index) {
+      const checkin = checkins[index];
+      checkins.splice(index, 1);
+      salvarCheckins();
+
+      let quartos = JSON.parse(localStorage.getItem("quartos") || "[]");
+      quartos = quartos.map(q => {
+        if (q.numero == checkin.quarto) q.status = "Disponível";
+        return q;
+      });
+      salvarQuartos(quartos);
+
+      renderPendentes();
+      renderAtivos();
+    }
+
+    window.addEventListener("load", () => {
+      renderPendentes();
+      renderAtivos();
+    });
+  </script>
+</body>
+
+</html>
